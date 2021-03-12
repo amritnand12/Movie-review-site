@@ -14,10 +14,12 @@ def home(request):
     return render(request,'main/index.html', context)
     
 def detail(request, id):
-    movie = Movie.objects.get(id=id) #select * from movie where id = id
+    movie = Movie.objects.get(id=id) 
+    review = Review.objects.filter(movie = id).order_by("-comment")
 
     context = {
         "movie": movie,
+        "reviews": review
     }
 
     return render(request,'main/details.html', context)
@@ -70,3 +72,42 @@ def delete_movies(request, id):
         else:
             return redirect("main:main-home")
     return redirect("accounts:login")
+
+def add_review(request, id):
+    if request.user.is_authenticated:
+        movie = Movie.objects.get(id = id)
+        if request.method == "POST":
+            form = ReviewForm(request.POST or None)
+            if form.is_valid:
+                data = form.save(commit=False)
+                data.comment = request.POST["comment"]
+                data.rating = request.POST["rating"]
+                data.user = request.user
+                data.movie = movie
+                data.save()
+                return redirect("main:details", id)
+        else:
+            form = ReviewForm()
+        return render(request, "main:details.html",{"form": form})
+    else:
+        return redirect("accounts:login")
+
+def edit_review(request, movie_id, review_id):
+    if request.user.is_authenticated:
+        movie = Movie.objects.get(id = movie_id)
+        review = Review.objects.get(movie = movie, id = review_id)
+
+        if request.user == review.user:
+            if request.method == "POST":
+                form = ReviewForm(request.POST, instance = review)
+                if form.is_valid():
+                    data = form.save(commit=False)
+                    data.save()
+                    return redirect("main:details",movie_id)
+            else:
+                form = ReviewForm(instance=review)
+            return render(request, 'main/editreview.html',{"form":form})
+        else:
+            return redirect("main:details",movie_id)
+    else:
+        return redirect("accounts:login")
